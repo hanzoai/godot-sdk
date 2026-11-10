@@ -1,0 +1,15 @@
+; Engine configuration file.
+; Official Hanzo AI SDK for Godot 4 (addons/hanzo_ai).
+
+config_version=5
+
+[application]
+
+config/name="Hanzo Godot SDK"
+config/description="Official Godot 4 SDK for the Hanzo Cloud API (api.hanzo.ai) — Zen 6 LLMs, Kai decisions, Zen Voice TTS, Agents, KV, Billing, and MCP Tools."
+config/version="1.0.0"
+config/features=PackedStringArray("4.6", "Forward Plus")
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/hanzo_ai/plugin.cfg")

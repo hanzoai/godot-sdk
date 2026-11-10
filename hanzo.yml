@@ -1,0 +1,19 @@
+# Hanzo CI — Godot 4 SDK gate (hanzoai/godot-sdk).
+
+test:
+  - name: godot-sdk-offline-check
+    run: |
+      set -euo pipefail
+      GODOT_BIN="${GODOT_BIN:-godot}"
+      if ! command -v "$GODOT_BIN" >/dev/null 2>&1; then
+        ARCH=$(uname -m)
+        FLAVOR="linux.x86_64"
+        [ "$ARCH" = "aarch64" ] && FLAVOR="linux.arm64"
+        mkdir -p /tmp/godot-ci
+        curl -fsSL -o /tmp/godot-ci/godot.zip "https://github.com/godotengine/godot-builds/releases/download/4.6.3-stable/Godot_v4.6.3-stable_${FLAVOR}.zip"
+        python3 -m zipfile -e /tmp/godot-ci/godot.zip /tmp/godot-ci/
+        chmod +x "/tmp/godot-ci/Godot_v4.6.3-stable_${FLAVOR}"
+        GODOT_BIN="/tmp/godot-ci/Godot_v4.6.3-stable_${FLAVOR}"
+      fi
+      "$GODOT_BIN" --headless --path . --import || true
+      HANZO_OFFLINE=1 "$GODOT_BIN" --headless --path . -s res://tests/sdk_check.gd

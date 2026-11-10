@@ -14,6 +14,7 @@ Pure GDScript over Godot's built-in `HTTPClient` + `TLSOptions.client()` — **z
 | Public model discovery | `GET /v1/models` | — (`security: []`) | `{ok, count, models}` |
 | Key verification | `GET /v1/account/keys` | — | `{ok, keys}` |
 | Billing balance & usage | `GET /v1/billing/{balance,usage}` | — | `{ok, status, json}` |
+| Cloud KV game saves & state | `POST / PUT / GET / DELETE /v1/kv/{bucket}[/{key}]` | — | `{ok, data, revision, revisions}` |
 | Provisioning KV stores | `POST/GET/DELETE /v1/provisioning/kv` | — | `{ok, status, json}` |
 | Cloud Agents | `POST /v1/agent`, `POST /v1/agent/{ref}/run` | `zen6-flash` | `{ok, status, json}` |
 | MCP Tool catalog & JSON-RPC | `GET /v1/tool`, `POST /v1/mcp` | — | `{ok, count, tools}` / `{ok, result}` |
@@ -22,7 +23,7 @@ Pure GDScript over Godot's built-in `HTTPClient` + `TLSOptions.client()` — **z
 
 ### Option 1: Copy or submodule `addons/hanzo_ai`
 
-Download `hanzo-godot-sdk-v1.0.0.zip` from [Releases](https://github.com/hanzoai/godot-sdk/releases) (or clone `hanzoai/godot-sdk`) and copy `addons/hanzo_ai/` into your Godot 4 project's `addons/` folder, then enable **Hanzo AI SDK** under **Project -> Project Settings -> Plugins**.
+Download `hanzo-godot-sdk-v1.1.0.zip` from [Releases](https://github.com/hanzoai/godot-sdk/releases) (or clone `hanzoai/godot-sdk`) and copy `addons/hanzo_ai/` into your Godot 4 project's `addons/` folder, then enable **Hanzo AI SDK** under **Project -> Project Settings -> Plugins**.
 
 ### Option 2: Godot 4 .NET (C#)
 
@@ -83,11 +84,13 @@ All six canonical Hanzo SDK flows from `hanzoai/openapi` `flows.yaml` plus Godot
 | `store` | [`examples/store.gd`](examples/store.gd) | `POST / GET / DELETE /v1/provisioning/kv` |
 | `agent` | [`examples/agent.gd`](examples/agent.gd) | `POST /v1/agent`, `POST /v1/agent/{ref}/run`, `DELETE /v1/agent/{ref}` |
 | `tools` | [`examples/tools.gd`](examples/tools.gd) | `GET /v1/tool` |
+| `game_backend` | [`examples/game_backend.gd`](examples/game_backend.gd) | Complete game loop: Cloud KV saves -> Kai Director -> Zen 6 radio -> Zen Voice 3D MP3 |
 | `csharp` | [`examples/csharp/HanzoGodotNode.cs`](examples/csharp/HanzoGodotNode.cs) | Godot 4 .NET + `Hanzo` NuGet |
 
 Run any example headlessly with Godot 4.x:
 
 ```bash
+HANZO_API_KEY=$(hanzo auth token) godot --headless --path . -s res://examples/game_backend.gd
 HANZO_API_KEY=$(hanzo auth token) godot --headless --path . -s res://examples/hello.gd
 HANZO_API_KEY=$(hanzo auth token) godot --headless --path . -s res://examples/chat.gd
 HANZO_API_KEY=$(hanzo auth token) godot --headless --path . -s res://examples/kai.gd

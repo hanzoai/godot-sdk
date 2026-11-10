@@ -22,7 +22,7 @@ const DEFAULT_FAST_CHAT_MODEL := "zen6-flash"
 const DEFAULT_DECISION_MODEL := "kai"
 const DEFAULT_VOICE_MODEL := "zen-voice"
 const MCP_PROTOCOL_VERSION := "2026-07-28"
-const SDK_USER_AGENT := "HanzoGodotSDK/1.0.0 (Godot-4)"
+const SDK_USER_AGENT := "HanzoGodotSDK/1.1.0 (Godot-4)"
 
 var base_url: String = DEFAULT_BASE_URL
 var api_key: String = ""
@@ -30,7 +30,7 @@ var org_id: String = ""
 var default_chat_model: String = DEFAULT_CHAT_MODEL
 var default_decision_model: String = DEFAULT_DECISION_MODEL
 var default_voice_model: String = DEFAULT_VOICE_MODEL
-var timeout_ms: int = 45000
+var timeout_ms: int = 90000
 var last_error: String = ""
 var request_count: int = 0
 
@@ -440,6 +440,113 @@ func get_billing_usage(start_iso: String = "", end_iso: String = "") -> Dictiona
 		qs.append("end=" + end_iso.uri_encode())
 	var path := "/v1/billing/usage" + (("?" + "&".join(qs)) if not qs.is_empty() else "")
 	return request_json(HTTPClient.METHOD_GET, path)
+
+
+# ---------------------------------------------------------------------------
+# Cloud KV Game State & Saves (/v1/kv/{bucket}/{key})
+# ---------------------------------------------------------------------------
+
+## Create or update a revisioned Cloud KV bucket (`POST /v1/kv/{bucket}`).
+## Bucket names accept 1-64 characters of `[A-Za-z0-9_]` (no hyphens).
+func create_kv_bucket(bucket: String, history: int = 4, ttl_sec: int = 0, max_value_bytes: int = 0) -> Dictionary:
+	var body: Dictionary = {"history": maxi(history, 1)}
+	if ttl_sec > 0:
+		body["ttl"] = ttl_sec
+	if max_value_bytes > 0:
+		body["maxValue"] = max_value_bytes
+	return request_json(HTTPClient.METHOD_POST, "/v1/kv/" + bucket.uri_encode(), body)
+
+
+## Write a UTF-8 or JSON value to a Cloud KV key (`PUT /v1/kv/{bucket}/{key}`).
+## Dictionaries and Arrays are automatically serialized to JSON strings.
+func put_kv(bucket: String, key: String, value: Variant) -> Dictionary:
+	var str_val := value as String if value is String else JSON.stringify(value)
+	var res := request_json(
+		HTTPClient.METHOD_PUT,
+		"/v1/kv/%s/%s" % [bucket.uri_encode(), key.uri_encode()],
+		{"value": str_val}
+	)
+	if not bool(res.get("ok", false)):
+		return res
+	var rev := 0
+	if res.get("json") is Dictionary:
+		rev = int((res["json"] as Dictionary).get("revision", 0))
+	res["revision"] = rev
+	return res
+
+
+## Read the latest value of a Cloud KV key (`GET /v1/kv/{bucket}/{key}`).
+## When `parse_json` is true and the stored UTF-8 value is valid JSON, `data` contains the parsed Variant.
+func get_kv(bucket: String, key: String, parse_json: bool = true) -> Dictionary:
+	var res := request_json(
+		HTTPClient.METHOD_GET,
+		"/v1/kv/%s/%s" % [bucket.uri_encode(), key.uri_encode()]
+	)
+	if not bool(res.get("ok", false)) or not (res.get("json") is Dictionary):
+		return res
+	var j := res["json"] as Dictionary
+	var raw_val := str(j.get("value", ""))
+	var parsed: Variant = raw_val
+	if parse_json and not raw_val.strip_edges().is_empty():
+		var candidate: Variant = JSON.parse_string(raw_val)
+		if candidate != null:
+			parsed = candidate
+	return {
+		"ok": true,
+		"status": int(res.get("status", 200)),
+		"key": str(j.get("key", key)),
+		"value": raw_val,
+		"data": parsed,
+		"revision": int(j.get("revision", 0)),
+		"operation": str(j.get("operation", "")),
+		"created": str(j.get("created", "")),
+		"latency_ms": int(res.get("latency_ms", 0)),
+	}
+
+
+## List stored revisions of a Cloud KV key (`GET /v1/kv/{bucket}/{key}/history`).
+func get_kv_history(bucket: String, key: String) -> Dictionary:
+	var res := request_json(
+		HTTPClient.METHOD_GET,
+		"/v1/kv/%s/%s/history" % [bucket.uri_encode(), key.uri_encode()]
+	)
+	if not bool(res.get("ok", false)) or not (res.get("json") is Dictionary):
+		return res
+	var revisions: Array = []
+	var d: Variant = (res["json"] as Dictionary).get("data", [])
+	if d is Array:
+		revisions = d
+	return {
+		"ok": true,
+		"status": int(res.get("status", 200)),
+		"revisions": revisions,
+		"count": revisions.size(),
+		"latency_ms": int(res.get("latency_ms", 0)),
+	}
+
+
+## Delete a single Cloud KV key (`DELETE /v1/kv/{bucket}/{key}`).
+func delete_kv(bucket: String, key: String) -> Dictionary:
+	return request_json(
+		HTTPClient.METHOD_DELETE,
+		"/v1/kv/%s/%s" % [bucket.uri_encode(), key.uri_encode()]
+	)
+
+
+## Delete an entire Cloud KV bucket (`DELETE /v1/kv/{bucket}`).
+func delete_kv_bucket(bucket: String) -> Dictionary:
+	return request_json(HTTPClient.METHOD_DELETE, "/v1/kv/" + bucket.uri_encode())
+
+
+## Capture a game telemetry / analytics event (`POST /v1/event`).
+func capture_event(event_name: String, properties: Dictionary = {}, distinct_id: String = "") -> Dictionary:
+	var body: Dictionary = {
+		"event": event_name,
+		"properties": properties,
+	}
+	if not distinct_id.is_empty():
+		body["distinct_id"] = distinct_id
+	return request_json(HTTPClient.METHOD_POST, "/v1/event", body)
 
 
 # ---------------------------------------------------------------------------

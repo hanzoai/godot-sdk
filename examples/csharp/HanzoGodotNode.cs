@@ -13,13 +13,36 @@ public partial class HanzoGodotNode : Node3D
 {
     [Export] public string ChatModel { get; set; } = "zen6";
     [Export] public string DecisionModel { get; set; } = "kai";
+    [Export] public string VoiceModel { get; set; } = "zen-voice";
+    [Export] public string SaveBucket { get; set; } = "godot_game_saves";
 
     private AiApi _ai = null!;
+    private KvApi _kv = null!;
 
     public override void _Ready()
     {
         var config = Gateway.Configuration(); // HANZO_API_KEY, HANZO_BASE_URL, HANZO_ORG_ID
         _ai = new AiApi(config);
+        _kv = new KvApi(config);
+    }
+
+    public async Task<long?> SaveSlotAsync(string slotKey, string jsonState)
+    {
+        await _kv.PostKvByBucketAsync(SaveBucket, new KvBucketWrite(history: 5));
+        var ack = await _kv.PutKvByBucketByKeyAsync(SaveBucket, slotKey, new KvKvWrite(value: jsonState));
+        return ack.Revision;
+    }
+
+    public async Task<string> LoadSlotAsync(string slotKey)
+    {
+        var entry = await _kv.GetKvByBucketByKeyAsync(SaveBucket, slotKey);
+        return entry.Value ?? "{}";
+    }
+
+    public async Task<AudioStreamMP3> SynthesizeVoiceAsync(string line, string voice = "alloy")
+    {
+        var mp3Bytes = await _ai.PostAudioSpeechBytesAsync(line, voice, VoiceModel);
+        return new AudioStreamMP3 { Data = mp3Bytes };
     }
 
     public async Task<string> AskNpcAsync(string prompt)

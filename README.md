@@ -1,6 +1,9 @@
 # Hanzo — Godot 4 SDK
 
-Official Godot 4 SDK (`addons/hanzo_ai`) for the [Hanzo Cloud API](https://hanzo.ai) at `https://api.hanzo.ai`.
+[![Built with Hanzo](https://hanzo.ai/badges/built-with-hanzo.svg)](https://hanzo.ai)
+[![Edit on Hanzo](https://hanzo.ai/badges/edit-on-hanzo.svg)](https://hanzo.app/dev?repo=https%3A%2F%2Fgithub.com%2Fhanzoai%2Fgodot-sdk)
+
+Official Godot 4 SDK (`addons/hanzo_ai`) for the [Hanzo Cloud API](https://hanzo.ai) at `https://api.hanzo.ai` — **[Docs](https://docs.hanzo.ai/docs/sdks/godot)** · **[Agent Skill (`godot.md`)](https://hanzoskills.com/godot.md)**.
 
 Pure GDScript over Godot's built-in `HTTPClient` + `TLSOptions.client()` — **zero GDExtension or .NET build required**, works out of the box on Linux, macOS, Windows, Android, iOS, OpenXR/VR, and headless CI. Also compatible alongside the [`Hanzo`](https://github.com/hanzo-csharp/sdk) NuGet package in Godot 4 .NET projects (see [`examples/csharp/`](examples/csharp)).
 

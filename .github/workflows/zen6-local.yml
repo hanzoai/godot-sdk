@@ -1,0 +1,59 @@
+# Local open-weight AI check: runs the SDK suite + local NPC example against Zen 6 Nano
+# on this runner's CPU (no API key, no cloud, no per-token cost).
+name: zen6-local
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  zen6-nano-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: fetch pinned Godot 4.6.3
+        run: |
+          curl -sL -o /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          mkdir -p /tmp/godot-bin
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin || python3 -m zipfile -e /tmp/godot.zip /tmp/godot-bin
+          chmod +x /tmp/godot-bin/Godot_v4.6.3-stable_linux.x86_64
+
+      - name: build Hanzo Engine (ternary backend, CPU)
+        run: |
+          SUDO=""; [ "$(id -u)" != "0" ] && command -v sudo >/dev/null && SUDO=sudo
+          command -v cmake >/dev/null || { $SUDO apt-get update -qq && $SUDO apt-get install -y -qq cmake build-essential git; }
+          git clone -q --depth 1 -b prism https://github.com/PrismML-Eng/llama.cpp /tmp/hanzo-engine-src
+          cmake -S /tmp/hanzo-engine-src -B /tmp/hanzo-engine-build -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF \
+            -DLLAMA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release >/dev/null
+          cmake --build /tmp/hanzo-engine-build -j"$(nproc)" --target llama-server
+          install -m755 /tmp/hanzo-engine-build/bin/llama-server /tmp/hanzo-engine-ternary
+
+      - name: pull Zen 6 Nano (2B, PTQ1_0, 429 MB)
+        run: |
+          mkdir -p /tmp/models
+          curl -sL -o /tmp/models/zen6-nano-2b-PTQ1_0.gguf \
+            https://huggingface.co/hanzoai/zen6-nano/resolve/main/zen6-nano-2b-PTQ1_0.gguf
+          ls -lh /tmp/models
+
+      - name: serve zen6-nano on CPU
+        run: |
+          nohup /tmp/hanzo-engine-ternary -m /tmp/models/zen6-nano-2b-PTQ1_0.gguf --alias zen6-nano \
+            -ngl 0 -c 8192 --host 127.0.0.1 --port 36900 --jinja --no-webui > /tmp/engine.log 2>&1 &
+          for i in $(seq 1 120); do curl -sf http://127.0.0.1:36900/v1/models >/dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:36900/v1/models >/dev/null || { cat /tmp/engine.log; exit 1; }
+
+      - name: import project
+        run: /tmp/godot-bin/Godot_v4.6.3-stable_linux.x86_64 --headless --import --path .
+
+      - name: sdk_check + local_npc against local zen6-nano
+        env:
+          HANZO_BASE_URL: http://127.0.0.1:36900
+          HANZO_MODEL: zen6-nano
+        run: |
+          G=/tmp/godot-bin/Godot_v4.6.3-stable_linux.x86_64
+          timeout 600 $G --headless --path . -s res://tests/sdk_check.gd
+          timeout 300 $G --headless --path . -s res://examples/local_npc.gd
+

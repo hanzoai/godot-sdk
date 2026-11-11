@@ -114,3 +114,17 @@ HANZO_API_KEY=$(hanzo auth token) godot --headless --path . -s res://examples/sp
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+
+## Local open-weight models (no key, no cloud)
+
+Run NPCs on an open-weight model on the player's or developer's machine:
+
+```bash
+hanzo load zen6-nano                      # Hanzo Engine on http://127.0.0.1:36900/v1
+HANZO_BASE_URL=http://127.0.0.1:36900 HANZO_MODEL=zen6-nano \
+  godot --headless --path . -s res://examples/local_npc.gd
+```
+
+`HanzoClient` talks to the local engine exactly as it talks to `api.hanzo.ai`; switch back by
+unsetting `HANZO_BASE_URL`. CI (`.github/workflows/zen6-local.yml`) serves `zen6-nano`
+(2B, 429 MB) on the runner CPU and runs `tests/sdk_check.gd` against it.

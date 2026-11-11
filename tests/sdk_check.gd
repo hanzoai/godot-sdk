@@ -86,6 +86,21 @@ func _initialize() -> void:
 	_check(silent_agent.audio_player == null, "HanzoAgent3D skips AudioStreamPlayer3D when auto_play_speech is false")
 	silent_agent.free()
 
+	# 3a. Local open-weight model (HANZO_BASE_URL on localhost, e.g. `hanzo load zen6-nano`)
+	var local_client := HanzoClient.from_env()
+	var lb := local_client.base_url.to_lower()
+	if OS.get_environment("HANZO_OFFLINE") != "1" and (lb.begins_with("http://127.0.0.1") or lb.begins_with("http://localhost")):
+		var local_model := OS.get_environment("HANZO_MODEL").strip_edges()
+		if local_model.is_empty():
+			local_model = "zen6-nano"
+		print("Running local open-weight checks against %s (%s)..." % [local_client.base_url, local_model])
+		var lm := local_client.get_models()
+		_check(bool(lm.get("ok", false)) and (lm.get("models", []) as Array).has(local_model), "local GET /v1/models lists %s" % local_model)
+		var lc := local_client.chat_text("Reply with exactly: LOCAL_OK", "", local_model, 64, 0.0)
+		_check(bool(lc.get("ok", false)) and str(lc.get("content", "")).contains("LOCAL_OK"), "local POST /v1/chat/completions follows instructions")
+		var li := local_client.chat_text("Who are you? One sentence.", "", local_model, 120, 0.0)
+		_check(bool(li.get("ok", false)) and str(li.get("content", "")).contains("Zen"), "local model identifies as Zen")
+
 	# 3. Live gateway & game-backend checks (when HANZO_API_KEY is present and HANZO_OFFLINE != 1)
 	var live_client := HanzoClient.from_env()
 	if OS.get_environment("HANZO_OFFLINE") != "1" and not live_client.api_key.is_empty():
